@@ -1,0 +1,11 @@
+# ---- Essenciais ----
+flask
+gunicorn
+pymongo
+flask_sqlalchemy
+passlib
+# Para permitir que o frontend acesse a API
+flask-cors
+
+# ---- Segurança e Configuração (Altamente Recomendadas) ----
+python-dotenv 
