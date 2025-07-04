@@ -6,6 +6,6 @@ flask_sqlalchemy
 passlib
 # Para permitir que o frontend acesse a API
 flask-cors
-
+PyJWT
 # ---- Segurança e Configuração (Altamente Recomendadas) ----
 python-dotenv 

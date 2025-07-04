@@ -1,7 +1,9 @@
-from flask import Blueprint, request, jsonify, session
+from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify, session, current_app  
 from src.models.academia import Admin, Aluno # Importa nossas novas classes de modelo
 from src.database import db # Importa a conexão 'db' do nosso main.py
 from functools import wraps
+import jwt
 from bson import ObjectId # Essencial para buscar por _id no MongoDB
 
 auth_bp = Blueprint('auth', __name__)
@@ -22,11 +24,37 @@ def login_required(f):
     return decorated_function
 
 def admin_required(f):
-    """Decorator para verificar se o usuário é admin"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session or session.get('user_type') != 'admin':
-            return jsonify({'error': 'Acesso negado - Admin necessário'}), 403
+        token = None
+        # Verifica se o token está no cabeçalho
+        if 'Authorization' in request.headers:
+            # Pega o token do cabeçalho "Bearer <token>"
+            token = request.headers['Authorization'].split(" ")[1]
+
+        if not token:
+            return jsonify({'error': 'Token de autenticação não fornecido'}), 401
+
+        try:
+            # Decodifica o token usando a chave secreta da aplicação
+            data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+            
+            # Verifica se o tipo de usuário no token é 'admin'
+            if data.get('user_type') != 'admin':
+                return jsonify({'error': 'Acesso negado - Admin necessário'}), 403
+            
+            # Procura o admin no banco de dados para garantir que ele ainda existe e está ativo
+            current_user = db.admins.find_one({'_id': ObjectId(data['user_id']), 'ativo': True})
+            if current_user is None:
+                return jsonify({'error': 'Usuário administrador não encontrado ou inativo'}), 401
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token expirado'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Token inválido'}), 401
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -63,10 +91,12 @@ def login_aluno():
 
 @auth_bp.route('/login/admin', methods=['POST'])
 def login_admin():
+
     """Login para administradores (versão MongoDB)"""
     data = request.get_json()
-    
-    if not data or not data.get('email') or not data.get('senha'):
+    # return jsonify(data)
+
+    if not data or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Email e senha são obrigatórios'}), 400
     
     # ---- CONSULTA CORRIGIDA PARA MONGODB ----
@@ -75,11 +105,17 @@ def login_admin():
     
     if admin_data:
         admin = Admin(admin_data)
-        if admin.check_senha(data['senha']):
-            session['user_id'] = str(admin._id)
-            session['user_type'] = 'admin'
+        if admin.check_senha(data['password']):
+            # Gera o token JWT
+            token = jwt.encode({
+                'user_id': str(admin._id),
+                'user_type': 'admin',
+                'exp': datetime.utcnow() + timedelta(hours=24) # Token expira em 24 horas
+            }, current_app.config['SECRET_KEY'], algorithm="HS256")
+
             return jsonify({
                 'message': 'Login realizado com sucesso',
+                'token': token, # Envia o token na resposta
                 'user': admin.to_dict()
             }), 200
             
@@ -100,6 +136,9 @@ def logout():
 def get_current_user():
     """Retorna informações do usuário logado (versão MongoDB)"""
     try:
+
+        #return session['user_id']
+
         user_id = session['user_id']
         user_type = session['user_type']
         

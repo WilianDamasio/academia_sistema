@@ -1,46 +1,45 @@
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'; // Importe o Provider
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from '@/components/LoginPage';
-import Dashboard from '@/components/Dashboard';
+import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import LoginPage from './components/LoginPage'
+import Dashboard from './components/Dashboard'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import './App.css'
 
-// Componente para proteger rotas
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth()
+  
   if (loading) {
-    // Pode mostrar um spinner/loading aqui
-    return <div>A carregar...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    )
   }
-
-  return isAuthenticated ? children : <Navigate to="/login" />;
-};
-
-function AppContent() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route 
-          path="/*" // Qualquer outra rota
-          element={
-            <ProtectedRoute>
-              <Dashboard /> {/* Ou o seu layout principal */}
-            </ProtectedRoute>
-          } 
-        />
-      </Routes>
-    </Router>
-  );
+  
+  return user ? children : <Navigate to="/login" />
 }
 
-// O seu componente principal que envolve tudo
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Router>
+        <div className="min-h-screen bg-background">
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route 
+              path="/*" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </div>
+      </Router>
     </AuthProvider>
-  );
+  )
 }
 
-export default App;
+export default App
+

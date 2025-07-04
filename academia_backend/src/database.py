@@ -13,7 +13,7 @@ try:
     
     # Seleciona o banco de dados.
     # É uma boa prática usar uma variável de ambiente específica para o nome do banco.
-    db = client[os.environ.get('academia_db', 'academia')]
+    db = client[os.environ.get('DB_NAME', 'academia')]
     
 except Exception as e:
     # Se não conseguir conectar, o app não deve subir.
